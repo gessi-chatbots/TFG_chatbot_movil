@@ -9,10 +9,14 @@ void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -37,10 +41,11 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
+  var status = 'disconnected';
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mobile Chatbot'),
+        title: Text('Status: $status'),
         actions: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -95,5 +100,9 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void cleanMessages() {}
+  void changeState() {
+    setState(() {
+      status = 'working';
+    });
+  }
 }
