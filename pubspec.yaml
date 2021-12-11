@@ -37,10 +37,13 @@ dependencies:
   system_settings: 2.0.0
   app_settings: 4.1.1
   device_apps: ^2.1.1
+  http: ^0.13.4
+  shared_preferences: ^2.0.9
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  test: ^1.17.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
