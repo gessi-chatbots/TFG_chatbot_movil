@@ -4,6 +4,9 @@ import 'dart:developer';
 import 'package:device_apps/device_apps.dart';
 import 'dart:io' show Platform;
 import 'package:tfg_chatbot_movil/chat_page.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import 'login.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,7 +32,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       debugShowCheckedModeBanner: false,
-      home: MyHomePage(),
+      home: SignInDemo(),
     );
   }
 }
@@ -51,10 +54,20 @@ class _MyHomePageState extends State<MyHomePage> {
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: IconButton(onPressed: () => _listapps22(), icon: Icon(Icons.settings), )
           ),
+          IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout))
         ],
       ),
       body: ChatPage(),
     );
+  }
+
+  Future<void> _handleSignOut() async {
+    googleSignIn.disconnect().whenComplete(() {
+      SignInDemo();
+      print("SignOut Done");
+    }).catchError((error) {
+      print("error in signout $error");
+    });
   }
 
   Future<void> _listapps22() async {

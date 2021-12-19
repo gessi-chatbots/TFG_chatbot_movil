@@ -57,6 +57,14 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+    signingConfigs {
+        debug {
+            storeFile file('key.jks')
+            storePassword 'androidstudio1'
+            keyAlias 'androiddebugkey'
+            keyPassword 'androidstudio1'
+        }
+    }
 }
 
 flutter {

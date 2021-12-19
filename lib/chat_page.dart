@@ -85,7 +85,10 @@ class _ChatPageState extends State<ChatPage> {
 
   void initState() {
     super.initState();
-    WidgetsBinding.instance!.addPostFrameCallback((_) => checkStatus());
+    const seconds = const Duration(seconds: 60);
+    WidgetsBinding.instance!.addPostFrameCallback((_) =>
+        // _fetchData() is your function to fetch data
+        Timer.periodic(seconds, (Timer t) => checkStatus()));
   }
 
   Future<void> submitMessage(String text) async {
