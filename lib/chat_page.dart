@@ -7,9 +7,15 @@ import 'dart:developer';
 import 'dart:io' show Platform, SocketException;
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import 'package:http/http.dart';
+import 'login.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 const rasaIP = 'http://3.143.242.230:5005';
 const localIP = 'http://10.0.2.2:5005';
+Timer? ping;
+List<String> pendentMessages = [];
+List<ChatBubble> messages = [];
+bool soundOn = false;
 
 class ChatPage extends StatefulWidget {
   @override
@@ -17,10 +23,10 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
+  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   final TextEditingController _controller = TextEditingController();
-  List<ChatBubble> messages = [];
   var status = 'undefined';
-  bool isLoading = true;
+  bool isLoading = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   @override
@@ -28,7 +34,9 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       key: _scaffoldKey,
       body: Column(children: [
-      Expanded(child: ListView(children: messages)),
+      Expanded(child: ListView(
+          key: ValueKey(messages.length),
+          children: messages)),
       Container(
         decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30.0),
@@ -60,11 +68,11 @@ class _ChatPageState extends State<ChatPage> {
                 FocusScope.of(context).requestFocus(FocusNode());
                 setState(() {
                   isLoading = true;
-                  log('primer setState ${isLoading}');
                 });
                 await submitMessage(text);
                 setState(() {
                   isLoading = false;
+                  messages;
                 });
               },
               child: (isLoading)
@@ -83,9 +91,20 @@ class _ChatPageState extends State<ChatPage> {
     ]));
   }
 
+  @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance!.addPostFrameCallback((_) => checkStatus());
+    const seconds = Duration(seconds: 30);
+    if(messages.isEmpty) welcomeMessage();
+    WidgetsBinding.instance!.addPostFrameCallback((_) =>
+        // _fetchData() is your function to fetch data
+        ping = Timer.periodic(seconds, (Timer t) => checkStatus()));
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    ping!.cancel();
   }
 
   Future<void> submitMessage(String text) async {
@@ -95,36 +114,36 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         messages.add(message);
       });
-      await sendtoRasa(text);
+      await sendtoRasa(text, false, message.getKey());
     }
   }
 
-  Future<String> sendtoRasa (String text) async {
+  Future<String> sendtoRasa (String text, bool retry, dynamic questionKey) async {
     try {
     dynamic response = await http.post(
         Uri.parse(localIP + '/webhooks/rest/webhook'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "sender": "test_user",
+          "sender": currentUser!.email,
           "message": text
         })).timeout(
-        Duration(seconds: 15)
+        const Duration(seconds: 10)
         );
     log('Request with statusCode : ${response.statusCode} and body: ${response.body}');
 
     if (response.statusCode == 200 && response.body != '[]') {
-    List<dynamic> jsonresponse = json.decode(response.body);
-    final responseBody = BotResponse.fromJson(jsonresponse[0]);
+      List<dynamic> jsonresponse = json.decode(response.body);
+      final responseBody = BotResponse.fromJson(jsonresponse[0]);
 
+      if(retry) {
+        ChatBubble message = ChatBubble(text: text, isCurrentUser: true);
+        setState(() {
+          messages.add(message);
+        });
+      }
       // If the server did return a 200 OK response,
       // then parse the JSON.
-      setState(() {
-        if (responseBody.message == '[]') {
-          ChatBubble message = const ChatBubble(
-              text: 'Sorry I could not understand you', isCurrentUser: false);
-          messages.add(message);
-        }
-        else if (responseBody.message is String) {
+        if (responseBody.message is String) {
           ChatBubble message = ChatBubble(
               text: responseBody.message, isCurrentUser: false);
           messages.add(message);
@@ -135,37 +154,97 @@ class _ChatPageState extends State<ChatPage> {
               text: customAction['text'], isCurrentUser: false);
           messages.add(message);
           if (customAction['flutteraction'] != "undefined") {
-            runAction(customAction['flutteraction']);
+            actionhandler(customAction['flutteraction']);
           }
         }
-      });
-    } } on TimeoutException catch (e) {
-      showDialog(context: context, builder: (BuildContext context) => AlertDialog(
-          title: Text('Attention'),
-          content: Text("Timeout Exceed we will send your message when your device has connectivity")
-      ));
-      throw Exception('Failed to send a message');
-    } on SocketException catch (e) {
-      throw Exception('Socket Error: $e');
-    } on Error catch (e) {
-      throw Exception('General Error: $e');
+      /*setState(() {
+        messages;
+      });*/
+      return "success";
     }
-    return "Finished";
-  }
+    else {
+      ChatBubble message = ChatBubble(
+          text: 'Sorry I could not understand you', isCurrentUser: false);
+      messages.add(message);
+    }} catch (e) {
+      messages.removeWhere((element) => element.getKey()==questionKey);
+      /*setState(() {
 
-  void runAction(String action) async {
-    final appName = action.split("_")[2];
-    log('Entered in runAction');
-    List<Application> _apps = await DeviceApps.getInstalledApplications(onlyAppsWithLaunchIntent: true, includeSystemApps: true) as List<Application>;
-    for (var app in _apps) {
-      if(app.appName.contains(appName)) {
-        showDialog(context: context, builder: (BuildContext context) => _buildPopupDialog(context,action,app.packageName));
-        break;
+      });*/
+      if(!retry) {
+         //MIRAR QUE BORRE EL QUE TOCA
+        showDialog(context: context, builder: (BuildContext context) =>
+        const AlertDialog(
+            title: Text('Attention'),
+            content: Text(
+                "Timeout exceeded we will send your message when your device has connectivity")
+        ));
+        pendentMessages.add(text);
+        print('Content: $pendentMessages');
+        setState(() {
+          isLoading = false;
+          messages;
+        });
+        throw Exception('Failed to send a message $e');
       }
     }
+    return "error";
+  }
+
+  void actionhandler(String action) async {
+    final appName = action.split("_")[2];
+    final action_type = action.split("_")[1];
+    log('Entered in runAction');
+    List<Application> _apps = await DeviceApps.getInstalledApplications(onlyAppsWithLaunchIntent: true, includeSystemApps: true) as List<Application>;
+    switch (action_type) {
+      case 'notification': {
+        for (var app in _apps) {
+          if(app.appName.contains(appName)) {
+            showDialog(context: context, builder: (BuildContext context) => _buildPopupDialogNotification(context,action,app.packageName));
+            break;
+          }
+        }
+        break;
+      }
+      case 'datausage': {
+        for (var app in _apps) {
+          if(app.appName.contains(appName)) {
+            showDialog(context: context, builder: (BuildContext context) => _buildPopupDialogDataUsage(context,action,app.packageName));
+            break;
+          }
+        }
+        break;
+      }
+      case 'batteryopt': {
+        for (var app in _apps) {
+          if(app.appName.contains(appName)) {
+            showDialog(context: context, builder: (BuildContext context) => FutureBuilder(
+                future: _buildPopupDialogBatteryOptimization(context,action,app.packageName),
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
+                  return snapshot.data;
+                }));
+          }
+        }
+        break;
+      }
+      default : {
+        throw(UnimplementedError);
+      }
+
+    }
+
   }
 
   Future<String> checkStatus() async {
+    print("Entrando en checkStatus");
+    if(pendentMessages.isNotEmpty) {
+      String result = await sendtoRasa(pendentMessages.first, true, "null");
+      if(result=="success") pendentMessages.removeAt(0);
+    }
+    /*
     try {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -173,9 +252,10 @@ class _ChatPageState extends State<ChatPage> {
               duration: const Duration(seconds: 15)
           )
       );
+
       dynamic response = await http.get(
           Uri.parse(localIP + '/status')).timeout(
-          Duration(seconds: 15));
+          Duration(seconds: 5));
       setState(() {
         isLoading = false;
       });
@@ -209,11 +289,20 @@ class _ChatPageState extends State<ChatPage> {
           )
       );
     }
-      return "disconnected";
+      return "disconnected"; */
+    return "";
+  }
+
+  void welcomeMessage() {
+    String? name = currentUser!.displayName!.split(" ")[0];
+    ChatBubble m = ChatBubble(text: "Hi $name, how can I help you?", isCurrentUser: false);
+    setState(() {
+      messages.add(m);
+    });
   }
 }
 
-Widget _buildPopupDialog(BuildContext context, String action, String app) {
+Widget _buildPopupDialogNotification(BuildContext context, String action, String app) {
   final actionType = action.split("_")[0];
   return AlertDialog(
     title: Text('Attention'),
@@ -227,6 +316,7 @@ Widget _buildPopupDialog(BuildContext context, String action, String app) {
     actions: <Widget>[
       TextButton(
         onPressed: () {
+          Navigator.of(context).pop();
           DeviceApps.openappNotifications(app);
         },
         child: const Text('Go to the APP'),
@@ -241,13 +331,68 @@ Widget _buildPopupDialog(BuildContext context, String action, String app) {
   );
 }
 
+Widget _buildPopupDialogDataUsage(BuildContext context, String action, String app) {
+  return AlertDialog(
+    title: Text('Attention'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('To control the APP data usage please press the following button'),
+      ],
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: () {
+          DeviceApps.ignoreBackgroundDataRestrictions(app);
+        },
+        child: const Text('Go to the APP'),
+      ),
+      TextButton(
+        onPressed: () {
+          Navigator.of(context).pop();
+        },
+        child: const Text('Close'),
+      ),
+    ],
+  );
+}
+
+Future<Widget> _buildPopupDialogBatteryOptimization(BuildContext context, String action, String app) async {
+  bool isBatteryOptimizationDisabled = await DeviceApps.isIgnoringBatteryOptimizations(app);
+  return AlertDialog(
+    title: Text('Attention'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('Battery optimization is currently ${isBatteryOptimizationDisabled ? "disabled" : "enabled"} for ${action.split("_")[2]}'),
+      ],
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: () {
+          DeviceApps.ignoreBatteryOptimizations(app);
+        },
+        child: const Text('Go to the APP'),
+      ),
+      TextButton(
+        onPressed: () {
+          Navigator.of(context).pop();
+        },
+        child: const Text('Close'),
+      ),
+    ],
+  );
+}
 class BotResponse {
+  final id;
   String recipient_id;
   dynamic message;
 
   BotResponse({
-    required this.recipient_id, required this.message
-  });
+    required this.recipient_id, required this.message,
+  }) : id = UniqueKey();
 
   factory BotResponse.fromJson(Map<String, dynamic> json) {
     return BotResponse(
@@ -258,13 +403,15 @@ class BotResponse {
 }
 
 class ChatBubble extends StatelessWidget {
-  const ChatBubble({
-    Key? key,
+  ChatBubble({
+    final key,
     required this.text,
     required this.isCurrentUser,
-  }) : super(key: key);
+  }) : key = UniqueKey();
   final String text;
   final bool isCurrentUser;
+  final key;
+
 
   @override
   Widget build(BuildContext context) {
@@ -299,5 +446,9 @@ class ChatBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  dynamic getKey() {
+    return key;
   }
 }
