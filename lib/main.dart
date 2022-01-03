@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:system_settings/system_settings.dart';
 import 'dart:developer';
 import 'package:device_apps/device_apps.dart';
 import 'dart:io' show Platform;
 import 'package:tfg_chatbot_movil/chat_page.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
+import 'package:tfg_chatbot_movil/settings.dart';
+import 'package:tfg_chatbot_movil/Prueba.dart';
 import 'login.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations(
+      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   runApp(const MyApp());
 }
 
@@ -32,6 +38,10 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       debugShowCheckedModeBanner: false,
+        initialRoute: '/',
+        routes: {
+          '/settings': (context) => SettingsPage(),
+        },
       home: SignInDemo(),
     );
   }
@@ -44,7 +54,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  var status = 'disconnected';
+  var status = 'connected';
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -52,7 +62,9 @@ class _MyHomePageState extends State<MyHomePage> {
         actions: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: IconButton(onPressed: () => _listapps22(), icon: Icon(Icons.settings), )
+            child: IconButton(onPressed: () {
+              Navigator.pushNamed(context, '/settings');
+            }, icon: Icon(Icons.settings), )
           ),
           IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout))
         ],
@@ -61,61 +73,52 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Future<void> _handleSignOut() async {
-    googleSignIn.disconnect().whenComplete(() {
-      SignInDemo();
-      print("SignOut Done");
-    }).catchError((error) {
-      print("error in signout $error");
-    });
-  }
-
-  Future<void> _listapps22() async {
-    // Returns a list of only those apps that have launch intent
-    List _apps = await DeviceApps.getInstalledApplications(onlyAppsWithLaunchIntent: true, includeAppIcons: true, includeSystemApps: true);
-    log(_apps.toString());
-    print(_apps.runtimeType);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          final tiles = <Widget>[];
-          for (var a in _apps) {
-              tiles.add(ListTile(
-                  leading: Image.memory(a.icon),
-                  title: Text(a.appName),
-                  onTap: () {
-                    DeviceApps.openApp(a.packageName);
-                  },
-                trailing: IconButton(onPressed: () { DeviceApps.openappNotifications(a.packageName);}, icon: Icon(Icons.circle_notifications_rounded) )
-              )
-              );
-            }
-          final divided = ListTile.divideTiles(
-            context: context,
-            tiles: tiles,
-          ).toList();
-
-          return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(onPressed: () { Navigator.pop(context); }, icon: Icon(Icons.close) ),
-              title: Text('Installed applications'),
+  void _handleSignOut() {
+    print("HandleSignOut $pendentMessages");
+    if (pendentMessages.isNotEmpty) {
+      showDialog(
+          context: context,
+          builder: (context) {
+        return AlertDialog(
+            title: Text('Attention'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const <Widget>[
+                Text('By signing out all your pendent messages will be deleted'),
+              ],
             ),
-            body: Scrollbar(
-                child: ListView(children: divided)
-            ),
-            floatingActionButton: FloatingActionButton.extended(
-                onPressed: () => SystemSettings.system(),
-                label: Text('Device settings')
-            ),
-          );
-        }, // ...to here.
-      ),
-    );
-  }
-
-  void changeState() {
-    setState(() {
-      status = 'working';
-    });
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  pendentMessages.clear();
+                  Navigator.of(context).pop();
+                  googleSignIn.signOut().whenComplete(() {
+                    SignInDemo();
+                    print("SignOut Done");
+                  }).catchError((error) {
+                    print("error in signout $error");
+                  });
+                },
+                child: const Text('SignOut'),
+              ),
+              TextButton(
+                onPressed: () {
+                  print(pendentMessages);
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+            ]);
+        });
+    }
+    else {
+      googleSignIn.signOut().whenComplete(() {
+        SignInDemo();
+        print("SignOut Done");
+      }).catchError((error) {
+        print("error in signout $error");
+      });
+    }
   }
 }

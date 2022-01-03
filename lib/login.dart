@@ -5,6 +5,7 @@ import "package:http/http.dart" as http;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:tfg_chatbot_movil/main.dart';
+import 'package:postgres/postgres.dart';
 
 GoogleSignIn googleSignIn = GoogleSignIn(
   // Optional clientId
@@ -15,81 +16,42 @@ GoogleSignIn googleSignIn = GoogleSignIn(
   ],
 );
 
+GoogleSignInAccount? currentUser;
+
 class SignInDemo extends StatefulWidget {
   @override
   State createState() => SignInDemoState();
 }
 
 class SignInDemoState extends State<SignInDemo> {
-  GoogleSignInAccount? _currentUser;
-  String _contactText = '';
 
   @override
   void initState() {
     super.initState();
     googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) {
       setState(() {
-        _currentUser = account;
+        currentUser = account;
       });
-      if (_currentUser != null) {
-        _handleGetContact(_currentUser!);
-      }
     });
     googleSignIn.signInSilently();
   }
 
-  Future<void> _handleGetContact(GoogleSignInAccount user) async {
-    setState(() {
-      _contactText = "Loading contact info...";
-    });
-    final http.Response response = await http.get(
-      Uri.parse('https://people.googleapis.com/v1/people/me/connections'
-          '?requestMask.includeField=person.names'),
-      headers: await user.authHeaders,
-    );
-    if (response.statusCode != 200) {
-      setState(() {
-        _contactText = "People API gave a ${response.statusCode} "
-            "response. Check logs for details.";
-      });
-      print('People API ${response.statusCode} response: ${response.body}');
-      return;
-    }
-    final Map<String, dynamic> data = json.decode(response.body);
-    final String? namedContact = _pickFirstNamedContact(data);
-    setState(() {
-      if (namedContact != null) {
-        _contactText = "I see you know $namedContact!";
-      } else {
-        _contactText = "No contacts to display.";
-      }
-    });
-  }
-
-  String? _pickFirstNamedContact(Map<String, dynamic> data) {
-    final List<dynamic>? connections = data['connections'];
-    final Map<String, dynamic>? contact = connections?.firstWhere(
-          (dynamic contact) => contact['names'] != null,
-      orElse: () => null,
-    );
-    if (contact != null) {
-      final Map<String, dynamic>? name = contact['names'].firstWhere(
-            (dynamic name) => name['displayName'] != null,
-        orElse: () => null,
-      );
-      if (name != null) {
-        return name['displayName'];
-      }
-    }
-    return null;
-  }
 
   Future<void> _handleSignIn() async {
+    var postgreBD = PostgreSQLConnection("10.0.2.2", 5432, "rasa", username: "project_admin", password: "root");
     try {
       await googleSignIn.signIn();
+      await postgreBD.open();
+      await postgreBD.query("INSERT INTO public.users (email,name) VALUES (@eValue,@nValue) ON CONFLICT (email) DO NOTHING", substitutionValues: {
+        "eValue" : currentUser!.email,
+        "nValue" : currentUser!.displayName!,
+      }
+      );
+
     } catch (error) {
       print(error);
     }
+    await postgreBD.close();
   }
 
   Future<void> _handleSignOut() => googleSignIn.disconnect();
@@ -97,16 +59,20 @@ class SignInDemoState extends State<SignInDemo> {
   Widget _loginPage() {
     return Scaffold(
         appBar: AppBar(
-          title: const Text('Chatbot SignIn Page'),
+          title: const Text('Rasa Chatbot'),
         ),
-        body: ConstrainedBox(
-          constraints: const BoxConstraints.expand(),
-          child: _buildBody(),
-        ));
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+          image: DecorationImage(image: AssetImage("images/background.jpg"), fit: BoxFit.fitHeight),
+          ),
+          child:ConstrainedBox(
+            constraints: const BoxConstraints.expand(),
+            child: _buildBody(),
+        )));
   }
 
   Widget _buildBody() {
-    GoogleSignInAccount? user = _currentUser;
+    GoogleSignInAccount? user = currentUser;
     if (user != null) {
       return MyHomePage();
     } else {
