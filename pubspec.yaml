@@ -46,6 +46,8 @@ dependencies:
   mockito: ^5.0.17
   postgres: ^2.4.3
   fuzzywuzzy: 0.1.6
+  flutter_tts: ^3.3.3
+  settings_ui: ^1.0.0
 
 dev_dependencies:
   flutter_test:

@@ -3,19 +3,24 @@ import 'dart:ffi';
 
 import 'package:flutter/material.dart';
 import 'package:device_apps/device_apps.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'dart:developer';
 import 'dart:io' show Platform, SocketException;
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:postgres/postgres.dart';
 import 'login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
-const rasaIP = 'http://3.143.242.230:5005';
+const rasaIP = 'http://3.19.218.153:5005';
 const localIP = 'http://10.0.2.2:5005';
 Timer? ping;
 List<String> pendentMessages = [];
 List<ChatBubble> messages = [];
 bool soundOn = false;
+final FlutterTts tts = FlutterTts();
 
 class ChatPage extends StatefulWidget {
   @override
@@ -23,11 +28,15 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   final TextEditingController _controller = TextEditingController();
-  var status = 'undefined';
   bool isLoading = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
+  final ScrollController _scrollController = ScrollController();
+
+  setTTs() {
+    tts.setLanguage('en');
+    tts.setSpeechRate(0.3);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +45,10 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(children: [
       Expanded(child: ListView(
           key: ValueKey(messages.length),
-          children: messages)),
+          children: messages,
+          physics: ClampingScrollPhysics(),
+          controller: _scrollController),
+      ),
       Container(
         decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30.0),
@@ -64,16 +76,22 @@ class _ChatPageState extends State<ChatPage> {
               style: ElevatedButton.styleFrom(shape: StadiumBorder()),
               onPressed: () async{
                 dynamic text = _controller.text;
-                _controller.clear();
-                FocusScope.of(context).requestFocus(FocusNode());
-                setState(() {
-                  isLoading = true;
-                });
-                await submitMessage(text);
-                setState(() {
-                  isLoading = false;
-                  messages;
-                });
+                if (text.isEmpty || isLoading) {
+                log("Empty text");
+                } else {
+                  _controller.clear();
+                  FocusScope.of(context).requestFocus(FocusNode());
+                  setState(() {
+                    isLoading = true;
+                  });
+                  await submitMessage(text);
+                  setState(() {
+                    isLoading = false;
+                    messages;
+                    _scrollController.jumpTo(_scrollController.position
+                        .maxScrollExtent);
+                  });
+                }
               },
               child: (isLoading)
                 ? const SizedBox(
@@ -95,6 +113,53 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     const seconds = Duration(seconds: 30);
+    messages.clear();
+    DeviceApps.listenToAppsChanges().listen((event) async {
+      switch (event.event) {
+        case ApplicationEventType.installed:
+          print("app installed ${event.appName}");
+          var postgreBD = PostgreSQLConnection("3.143.242.230", 5432, "rasa", username: "project_admin", password: "root");
+          try {
+            await postgreBD.open();
+            await postgreBD.query("UPDATE public.users SET app_names = array_append(app_names,(@aValue)) WHERE email = (@eValue)", substitutionValues: {
+              "eValue" : currentUser!.email,
+              "aValue" : event.appName,
+            }
+            );
+
+          } catch (error) {
+            print(error);
+          }
+          await postgreBD.close();
+          break;
+        case ApplicationEventType.updated:
+          break;
+        case ApplicationEventType.uninstalled:
+          var postgreBD = PostgreSQLConnection("3.143.242.230", 5432, "rasa", username: "project_admin", password: "root");
+          try {
+            List _apps = await DeviceApps.getInstalledApplications(onlyAppsWithLaunchIntent: true, includeAppIcons: true, includeSystemApps: true);
+            _apps.sort((a, b) => (a.appName.toLowerCase()).compareTo(b.appName.toLowerCase()));
+            final appList = _apps.map((h) => h.appName).toList();
+            await postgreBD.open();
+            await postgreBD.query("UPDATE public.users SET app_names = @aValue WHERE email = (@eValue)", substitutionValues: {
+              "eValue" : currentUser!.email,
+              "aValue" : appList,
+            }
+            );
+
+          } catch (error) {
+            print(error);
+          }
+          await postgreBD.close();
+          break;
+        case ApplicationEventType.enabled:
+          break;
+        case ApplicationEventType.disabled:
+          break;
+      };
+    });
+
+    print("Created the stream");
     if(messages.isEmpty) welcomeMessage();
     WidgetsBinding.instance!.addPostFrameCallback((_) =>
         // _fetchData() is your function to fetch data
@@ -108,14 +173,11 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> submitMessage(String text) async {
-    if (text.isEmpty) log("Empty text");
-    else {
       ChatBubble message = ChatBubble(text: text, isCurrentUser: true);
       setState(() {
         messages.add(message);
       });
       await sendtoRasa(text, false, message.getKey());
-    }
   }
 
   Future<String> sendtoRasa (String text, bool retry, dynamic questionKey) async {
@@ -147,6 +209,7 @@ class _ChatPageState extends State<ChatPage> {
           ChatBubble message = ChatBubble(
               text: responseBody.message, isCurrentUser: false);
           messages.add(message);
+          if(soundOn) tts.speak(responseBody.message);
         }
         else {
           final customAction = Map<String, dynamic>.from(responseBody.message);
@@ -156,10 +219,8 @@ class _ChatPageState extends State<ChatPage> {
           if (customAction['flutteraction'] != "undefined") {
             actionhandler(customAction['flutteraction']);
           }
+          if(soundOn) tts.speak(customAction['text']);
         }
-      /*setState(() {
-        messages;
-      });*/
       return "success";
     }
     else {
@@ -168,11 +229,7 @@ class _ChatPageState extends State<ChatPage> {
       messages.add(message);
     }} catch (e) {
       messages.removeWhere((element) => element.getKey()==questionKey);
-      /*setState(() {
-
-      });*/
       if(!retry) {
-         //MIRAR QUE BORRE EL QUE TOCA
         showDialog(context: context, builder: (BuildContext context) =>
         const AlertDialog(
             title: Text('Attention'),
@@ -233,9 +290,7 @@ class _ChatPageState extends State<ChatPage> {
       default : {
         throw(UnimplementedError);
       }
-
     }
-
   }
 
   Future<String> checkStatus() async {
@@ -293,12 +348,37 @@ class _ChatPageState extends State<ChatPage> {
     return "";
   }
 
-  void welcomeMessage() {
+
+  void welcomeMessage() async{
     String? name = currentUser!.displayName!.split(" ")[0];
-    ChatBubble m = ChatBubble(text: "Hi $name, how can I help you?", isCurrentUser: false);
+    ElevatedButton helpButton = ElevatedButton(onPressed: () { helpDialog(_scaffoldKey.currentContext); }, child: Text("Help"),style: ButtonStyle(
+        shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+            RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.0),
+                side: BorderSide(color: Colors.lightBlueAccent)
+            )
+        )
+    ));
+    ChatBubble m = ChatBubble(text: "Hi $name, how can I help you?", isCurrentUser: false, butt: helpButton);
     setState(() {
       messages.add(m);
     });
+    var postgreBD = PostgreSQLConnection("10.0.2.2", 5432, "rasa", username: "project_admin", password: "root");
+    /*try {
+      await postgreBD.open();
+      await postgreBD.query("INSERT INTO public.events (sender_id,type_name,timestamp, action_name,data) VALUES (@eValue,@tValue,@timeValue,@aValue,@dValue);", substitutionValues: {
+        "eValue": currentUser!.email,
+        "tValue": "app",
+        "aValue": "welcome",
+        "dValue": m.text,
+        "timeValue": DateTime.now().millisecondsSinceEpoch,
+      });
+
+    } catch (error) {
+      print(error);
+    }*/
+    await postgreBD.close();
+    if(soundOn) tts.speak(m.text);
   }
 }
 
@@ -358,6 +438,44 @@ Widget _buildPopupDialogDataUsage(BuildContext context, String action, String ap
   );
 }
 
+void helpDialog(context) {
+  List<String> examplePhrases =[
+    "I want to disable youtube notifications",
+    'Disable gmail background data',
+    "Control chrome battery usage",
+    "Show me facebook permissions"
+  ];
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+          title: Text('Example of actions'),
+          content: Container(
+              width: double.minPositive,
+              child: ListView.builder(
+                  itemCount: examplePhrases.length,
+                  shrinkWrap: true,
+                  itemBuilder: (BuildContext context, int index) {
+                    return Card(
+                      child: InkWell(
+                        onLongPress: () {
+                          Clipboard.setData(ClipboardData(text:examplePhrases[index]));
+                          Fluttertoast.showToast(msg:"Copied to clipboard!");
+                          },
+                        child: Text(examplePhrases[index],
+                        style: Theme.of(context).textTheme.bodyText1!.copyWith(
+                        color: Colors.green),
+                        ),
+                      ),
+                    );
+                  }
+              )
+          )
+      );
+    },
+  );
+}
+
 Future<Widget> _buildPopupDialogBatteryOptimization(BuildContext context, String action, String app) async {
   bool isBatteryOptimizationDisabled = await DeviceApps.isIgnoringBatteryOptimizations(app);
   return AlertDialog(
@@ -406,11 +524,12 @@ class ChatBubble extends StatelessWidget {
   ChatBubble({
     final key,
     required this.text,
-    required this.isCurrentUser,
+    required this.isCurrentUser, this.butt,
   }) : key = UniqueKey();
   final String text;
   final bool isCurrentUser;
   final key;
+  final ElevatedButton? butt;
 
 
   @override
@@ -441,6 +560,7 @@ class ChatBubble extends StatelessWidget {
                       color: Colors.white),
                 ),
               ),
+                if (butt != null) Container(child: butt),
           ],
           ),
         ),

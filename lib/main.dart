@@ -54,19 +54,18 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  var status = 'connected';
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Status: $status'),
+        title: Text('Rasa Chatbot'),
         actions: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: IconButton(onPressed: () {
               Navigator.pushNamed(context, '/settings');
-            }, icon: Icon(Icons.settings), )
+            }, icon: Icon(Icons.settings), tooltip: "Settings",)
           ),
-          IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout))
+          IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout), tooltip: "SignOut",)
         ],
       ),
       body: ChatPage(),

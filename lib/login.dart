@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert' show json;
 
+import 'package:device_apps/device_apps.dart';
 import "package:http/http.dart" as http;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -12,7 +13,6 @@ GoogleSignIn googleSignIn = GoogleSignIn(
   // clientId: '479882132969-9i9aqik3jfjd7qhci1nqf0bm2g71rm1u.apps.googleusercontent.com',
   scopes: <String>[
     'email',
-    'https://www.googleapis.com/auth/contacts.readonly',
   ],
 );
 
@@ -38,13 +38,18 @@ class SignInDemoState extends State<SignInDemo> {
 
 
   Future<void> _handleSignIn() async {
+    List _apps = await DeviceApps.getInstalledApplications(onlyAppsWithLaunchIntent: true, includeAppIcons: true, includeSystemApps: true);
+    _apps.sort((a, b) => (a.appName.toLowerCase()).compareTo(b.appName.toLowerCase()));
+    final appList = _apps.map((h) => h.appName).toList();
+
     var postgreBD = PostgreSQLConnection("10.0.2.2", 5432, "rasa", username: "project_admin", password: "root");
     try {
       await googleSignIn.signIn();
       await postgreBD.open();
-      await postgreBD.query("INSERT INTO public.users (email,name) VALUES (@eValue,@nValue) ON CONFLICT (email) DO NOTHING", substitutionValues: {
+      await postgreBD.query("INSERT INTO public.users (email,name,app_names) VALUES (@eValue,@nValue,@aValue) ON CONFLICT (email) DO UPDATE SET app_names =  @aValue;", substitutionValues: {
         "eValue" : currentUser!.email,
         "nValue" : currentUser!.displayName!,
+        "aValue" : appList,
       }
       );
 
@@ -57,25 +62,28 @@ class SignInDemoState extends State<SignInDemo> {
   Future<void> _handleSignOut() => googleSignIn.disconnect();
 
   Widget _loginPage() {
-    return Scaffold(
-        appBar: AppBar(
-          title: const Text('Rasa Chatbot'),
-        ),
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-          image: DecorationImage(image: AssetImage("images/background.jpg"), fit: BoxFit.fitHeight),
-          ),
-          child:ConstrainedBox(
-            constraints: const BoxConstraints.expand(),
-            child: _buildBody(),
-        )));
-  }
-
-  Widget _buildBody() {
     GoogleSignInAccount? user = currentUser;
     if (user != null) {
       return MyHomePage();
     } else {
+      return Scaffold(
+          appBar: AppBar(
+            title: const Text('Rasa Chatbot'),
+          ),
+          body: DecoratedBox(
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                    image: AssetImage("images/background.jpg"),
+                    fit: BoxFit.fitHeight),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints.expand(),
+                child: _buildBody(),
+              )));
+    }
+  }
+
+  Widget _buildBody() {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
@@ -88,7 +96,6 @@ class SignInDemoState extends State<SignInDemo> {
           ),
         ],
       );
-    }
   }
 
   @override
