@@ -1,15 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:system_settings/system_settings.dart';
-import 'dart:developer';
-import 'package:device_apps/device_apps.dart';
-import 'dart:io' show Platform;
 import 'package:tfg_chatbot_movil/chat_page.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:tfg_chatbot_movil/settings.dart';
-import 'package:tfg_chatbot_movil/Prueba.dart';
 import 'login.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,22 +24,22 @@ class _MyAppState extends State<MyApp> {
     return Semantics(
         label: "Mobile Chatbot",
         child: MaterialApp(
-      title: 'Mobile Chatbot',
-      theme: ThemeData(
-        primaryColor: Colors.orange[200],
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        textTheme: const TextTheme(
-            bodyText1: TextStyle(fontSize: 20.0)
-        ),
-      ),
-      debugShowCheckedModeBanner: false,
-        initialRoute: '/',
-        routes: {
-          '/settings': (context) => SettingsPage(),
-        },
-      home: Semantics (
-        child:SignInDemo(),
-        label:"Sign In Screen")
+          title: 'Mobile Chatbot',
+          theme: ThemeData(
+            primaryColor: Colors.orange[200],
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+            textTheme: const TextTheme(
+                bodyText1: TextStyle(fontSize: 20.0)
+            ),
+          ),
+          debugShowCheckedModeBanner: false,
+            initialRoute: '/',
+            routes: {
+              '/settings': (context) => SettingsPage(),
+            },
+          home: Semantics (
+            child:SignInDemo(),
+            label:"Sign In Screen")
     ),
     container: true);
   }

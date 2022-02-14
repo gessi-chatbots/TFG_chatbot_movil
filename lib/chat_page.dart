@@ -12,8 +12,6 @@ import 'package:http/http.dart' as http;
 import 'package:postgres/postgres.dart';
 import 'login.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:mockito/annotations.dart';
-import 'package:mockito/mockito.dart';
 
 Timer? ping;
 List<String> pendentMessages = [];

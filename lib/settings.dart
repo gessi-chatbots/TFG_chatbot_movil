@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:system_settings/system_settings.dart';
-import 'dart:developer';
 import 'package:device_apps/device_apps.dart';
-import 'dart:io' show Platform;
-import 'package:open_settings/open_settings.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:tfg_chatbot_movil/chat_page.dart';
 import 'package:settings_ui/settings_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login.dart';
 
@@ -42,14 +38,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         _listapps22(context);
                       },
                     ),
-                    /*SettingsTile(
-                      title: 'Clear Messages',
-                      subtitle: '${messages.length} messages',
-                      leading: Icon(Icons.remove_circle),
-                      onPressed: (BuildContext context) {
-                        throw (UnimplementedError);
-                      },
-                    ),*/
                     SettingsTile(
                       title: 'Pending Messages',
                       subtitle: '${pendentMessages.length} messages',
