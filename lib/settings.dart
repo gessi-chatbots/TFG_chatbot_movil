@@ -7,6 +7,7 @@ import 'package:open_settings/open_settings.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:tfg_chatbot_movil/chat_page.dart';
 import 'package:settings_ui/settings_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login.dart';
 
@@ -16,13 +17,16 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Semantics(
+        label: "Settings screen",
+        child: Scaffold(
         appBar: AppBar(
           title: Text('Settings️'),
         ),
-        body: Container(
+        body: MergeSemantics( child: Container(
             padding: const EdgeInsets.only(top: 10),
             child: SettingsList(
               sections: [
@@ -33,23 +37,23 @@ class _SettingsPageState extends State<SettingsPage> {
                       title: 'Installed apps',
                       subtitle:
                           'Display a list of the installed apps in the device',
-                      leading: Icon(Icons.apps_sharp),
+                      leading: const Icon(Icons.apps_sharp, semanticLabel: "Installed Apps",),
                       onPressed: (BuildContext context) {
                         _listapps22(context);
                       },
                     ),
-                    SettingsTile(
+                    /*SettingsTile(
                       title: 'Clear Messages',
                       subtitle: '${messages.length} messages',
                       leading: Icon(Icons.remove_circle),
                       onPressed: (BuildContext context) {
                         throw (UnimplementedError);
                       },
-                    ),
+                    ),*/
                     SettingsTile(
                       title: 'Pending Messages',
                       subtitle: '${pendentMessages.length} messages',
-                      leading: Icon(Icons.pending_rounded),
+                      leading: const Icon(Icons.pending_rounded, semanticLabel: "Pending Messages",),
                       onPressed: (BuildContext context) {
                         showDialog(
                           context: context,
@@ -79,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     SettingsTile.switchTile(
                       title: 'Audio',
-                      leading: Icon(Icons.multitrack_audio),
+                      leading: Icon(Icons.multitrack_audio, semanticLabel: "Audio",),
                       switchValue: soundOn,
                       onToggle: (bool value) {
                         setState(() {
@@ -91,7 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     SettingsTile(
                       title: 'Help',
                       subtitle: '',
-                      leading: Icon(Icons.help),
+                      leading: Icon(Icons.help, semanticLabel: "Help",),
                       onPressed: (BuildContext context) {
                         helpDialog(context);
                       },
@@ -104,72 +108,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     SettingsTile(
                       title: '${currentUser!.displayName}',
                       subtitle: '${currentUser!.email}',
-                      leading: Icon(Icons.account_circle),
+                      leading: Icon(Icons.account_circle, semanticLabel: "User info",),
                       onPressed: (BuildContext context) {},
                     ),
                   ],
                 ),
               ],
             ))
-        /*
-      body: Container(
-          padding: const EdgeInsets.all(15),
-          child: IntrinsicWidth(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                ElevatedButton(
-                    child: const Text('Installed Apps'),
-                    onPressed: () => _listapps22(context),
-                  ),
-                ElevatedButton(
-                  child: const Text('Clear Messages'),
-                  onPressed: () => messages.clear(),
-                ),
-                ElevatedButton(
-                  child: const Text('Pendent Messages'),
-                  onPressed: () => {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return Dialog(
-                          child: pendentMessages.isEmpty ? Center(child: Text('No Pendent Messages')) : ListView.builder(
-                            itemCount: pendentMessages.length,
-                            itemBuilder: (context, index) => Container(
-                              child: Text(
-                              pendentMessages[index],//Reference an index & key here. This is why index is provided as a parameter in this callback
-                              ),
-                        )));
-                      },
-                    )
-                  },
-                ),
-                ElevatedButton(
-                  child: const Text('Help'),
-                  onPressed: () =>throw(UnimplementedError),
-                ),
-                Row(
-                    children: [
-                      Text("Sound"), Switch(
-                      value: soundOn,
-                      onChanged: (value) {
-                        setState(() {
-                          soundOn = value;
-                          print(soundOn);
-                        });
-                      },
-                      activeTrackColor: Colors.lightGreenAccent,
-                      activeColor: Colors.green,
-                    )
-                  ]
-                ),
-              ]
-          ))
-        ),*/
-        );
+        )));
   }
-
 }
 
 Future<void> _listapps22(BuildContext context) async {
@@ -194,10 +141,8 @@ Future<void> _listapps22(BuildContext context) async {
       onlyAppsWithLaunchIntent: true,
       includeAppIcons: true,
       includeSystemApps: true);
-  log(_apps.toString());
   _apps.sort(
       (a, b) => (a.appName.toLowerCase()).compareTo(b.appName.toLowerCase()));
-  print(_apps.runtimeType);
   Navigator.pop(context);
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -268,8 +213,9 @@ Future<void> testingBattery(packageName) async {
     msg:
         "Optimization is ${isBatteryOptimizationDisabled ? "Disabled" : "Enabled"}",
   );
-  if (!isBatteryOptimizationDisabled)
+  if (!isBatteryOptimizationDisabled) {
     DeviceApps.ignoreBatteryOptimizations(packageName);
+  }
 }
 
 Future<void> testingNotifications(packageName) async {
@@ -296,5 +242,6 @@ Future<void> testingPermissions(packageName, BuildContext context) async {
                     return Text(permissionsSplited[index]);
                   }),
             ),
-          ));
+      )
+  );
 }
