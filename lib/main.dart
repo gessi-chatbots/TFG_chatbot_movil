@@ -28,7 +28,9 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return Semantics(
+        label: "Mobile Chatbot",
+        child: MaterialApp(
       title: 'Mobile Chatbot',
       theme: ThemeData(
         primaryColor: Colors.orange[200],
@@ -42,8 +44,11 @@ class _MyAppState extends State<MyApp> {
         routes: {
           '/settings': (context) => SettingsPage(),
         },
-      home: SignInDemo(),
-    );
+      home: Semantics (
+        child:SignInDemo(),
+        label:"Sign In Screen")
+    ),
+    container: true);
   }
 }
 
@@ -54,22 +59,23 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  var status = 'connected';
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Status: $status'),
+        title: Text('Rasa Chatbot'),
         actions: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: IconButton(onPressed: () {
               Navigator.pushNamed(context, '/settings');
-            }, icon: Icon(Icons.settings), )
+            }, icon: Icon(Icons.settings), tooltip: "Settings",)
           ),
-          IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout))
+          IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout), tooltip: "SignOut",)
         ],
       ),
-      body: ChatPage(),
+      body: Semantics(
+        child: ChatPage(),
+        label: "Chat Page Screen",)
     );
   }
 
