@@ -1,123 +1,192 @@
+import 'package:bubble/bubble.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:tfg_chatbot_movil/chat_page.dart';
-import 'package:tfg_chatbot_movil/settings.dart';
-import 'login.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
+import 'dart:developer';
+
+/// https://github.com/neon97/chatbot_dialogflow
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations(
-      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-  runApp(const MyApp());
+  runApp(MaterialApp(
+    home: MyApp(),
+    debugShowCheckedModeBanner: false,
+  ));
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({Key? key}) : super(key: key);
+const rasaIP = '0.0.0.0:5005';
+const localIP = '0.0.0.0';
+const IP = localIP;
 
+class MyApp extends StatefulWidget {
   @override
-  State<MyApp> createState() => _MyAppState();
+  _MyAppState createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-        label: "Mobile Chatbot",
-        child: MaterialApp(
-          title: 'Mobile Chatbot',
-          theme: ThemeData(
-            primaryColor: Colors.orange[200],
-            visualDensity: VisualDensity.adaptivePlatformDensity,
-            textTheme: const TextTheme(
-                bodyText1: TextStyle(fontSize: 20.0)
-            ),
-          ),
-          debugShowCheckedModeBanner: false,
-            initialRoute: '/',
-            routes: {
-              '/settings': (context) => SettingsPage(),
-            },
-          home: Semantics (
-            child:SignInDemo(),
-            label:"Sign In Screen")
-    ),
-    container: true);
+
+  final messageInsert = TextEditingController();
+  List<Map> messsages = [];
+
+  Future<String> sendToRasa (String text) async {
+    log("started sent to rasa");
+    try {
+      dynamic response = await http.post(
+          Uri.parse('http://' + IP + ':5005' + '/webhooks/rest/webhook'),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "sender": "me",
+            "message": text
+          })).timeout(
+          const Duration(seconds: 10)
+      );
+      log('Request with statusCode : ${response.statusCode} and body: ${response.body}');
+    } on TimeoutException catch (e) {}
+    return "error";
   }
-}
 
-class MyHomePage extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rasa Chatbot'),
-        actions: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: IconButton(onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            }, icon: Icon(Icons.settings), tooltip: "Settings",)
-          ),
-          IconButton(onPressed: () {_handleSignOut(); }, icon: Icon(Icons.logout), tooltip: "SignOut",)
-        ],
+        title: Text(
+          "CupcakeShop Bot",
+        ),
+        backgroundColor: Colors.deepOrange,
       ),
-      body: Semantics(
-        child: ChatPage(),
-        label: "Chat Page Screen",)
+      body: Container(
+        child: Column(
+          children: <Widget>[
+            Flexible(
+                child: ListView.builder(
+                    reverse: true,
+                    itemCount: messsages.length,
+                    itemBuilder: (context, index) => chat(
+                        messsages[index]["message"].toString(),
+                        messsages[index]["data"]))),
+            Divider(
+              height: 5.0,
+              color: Colors.deepOrange,
+            ),
+            Container(
+              padding: EdgeInsets.only(left: 15.0, right: 15.0),
+              margin: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                children: <Widget>[
+                  Flexible(
+                      child: TextField(
+                    controller: messageInsert,
+                    decoration: InputDecoration.collapsed(
+                        hintText: "Send your message",
+                        hintStyle: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18.0)),
+                  )),
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 4.0),
+                    child: IconButton(
+                      
+                        icon: Icon(
+                          
+                          Icons.send,
+                          size: 30.0,
+                          color: Colors.deepOrange,
+                        ),
+                        onPressed: () {
+                          if (messageInsert.text.isEmpty) {
+                            print("empty message");
+                          } else {
+                            setState(() {
+                              messsages.insert(0,
+                                  {"data": 1, "message": messageInsert.text});
+                            });
+                            sendToRasa(messageInsert.text);
+                            //response(messageInsert.text);
+                            messageInsert.clear();
+                          }
+                        }),
+                  )
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 15.0,
+            )
+          ],
+        ),
+      ),
     );
   }
 
-  void _handleSignOut() {
-    print("HandleSignOut $pendentMessages");
-    if (pendentMessages.isNotEmpty) {
-      showDialog(
-          context: context,
-          builder: (context) {
-        return AlertDialog(
-            title: Text('Attention'),
-            content: Column(
+  //for better one i have use the bubble package check out the pubspec.yaml
+
+  Widget chat(String message, int data) {
+    return Padding(
+      padding: EdgeInsets.all(10.0),
+      child: Bubble(
+          radius: Radius.circular(15.0),
+          color: data == 0 ? Colors.deepOrange : Colors.orangeAccent,
+          elevation: 0.0,
+          alignment: data == 0 ? Alignment.topLeft : Alignment.topRight,
+          nip: data == 0 ? BubbleNip.leftBottom : BubbleNip.rightTop,
+          child: Padding(
+            padding: EdgeInsets.all(2.0),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const <Widget>[
-                Text('By signing out all your pendent messages will be deleted'),
+              children: <Widget>[
+                CircleAvatar(
+                  backgroundImage: AssetImage(
+                      data == 0 ? "assets/bot.png" : "assets/user.png"),
+                ),
+                SizedBox(
+                  width: 10.0,
+                ),
+                Flexible(
+                    child: Text(
+                  message,
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ))
               ],
             ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  pendentMessages.clear();
-                  Navigator.of(context).pop();
-                  googleSignIn.signOut().whenComplete(() {
-                    SignInDemo();
-                    print("SignOut Done");
-                  }).catchError((error) {
-                    print("error in signout $error");
-                  });
-                },
-                child: const Text('SignOut'),
-              ),
-              TextButton(
-                onPressed: () {
-                  print(pendentMessages);
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Cancel'),
-              ),
-            ]);
-        });
-    }
-    else {
-      googleSignIn.signOut().whenComplete(() {
-        SignInDemo();
-        print("SignOut Done");
-      }).catchError((error) {
-        print("error in signout $error");
-      });
-    }
+          )),
+    );
   }
 }
+  /*
+    if (response.statusCode == 200 && response.body != '[]') {
+      List<dynamic> jsonresponse = json.decode(response.body);
+      final responseBody = BotResponse.fromJson(jsonresponse[0]);
+
+      if(retry) {
+        ChatBubble message = ChatBubble(text: text, isCurrentUser: true);
+        messages.add(message);
+      }
+      // If the server did return a 200 OK response,
+      // then parse the JSON.
+      if (responseBody.message is String) {
+        ChatBubble message = ChatBubble(
+            text: responseBody.message, isCurrentUser: false);
+        messages.add(message);
+        if(soundOn) tts.speak(responseBody.message);
+      }
+      else {
+        final customAction = Map<String, dynamic>.from(responseBody.message);
+        ChatBubble message = ChatBubble(
+            text: customAction['text'], isCurrentUser: false);
+        messages.add(message);
+        if (customAction['flutteraction'] != "undefined") {
+          actionhandler(customAction['flutteraction'],context);
+        }
+        if(soundOn) tts.speak(customAction['text']);
+      }
+      return "success";
+    }
+    else {
+      ChatBubble message = ChatBubble(
+          text: 'Sorry I could not understand you', isCurrentUser: false);
+      messages.add(message);
+    }} on TimeoutException catch (e) {
+    print(e);
+    messages.removeWhere((element) => element.getKey()==questionKey);
+    return "timeout";
+  }*/

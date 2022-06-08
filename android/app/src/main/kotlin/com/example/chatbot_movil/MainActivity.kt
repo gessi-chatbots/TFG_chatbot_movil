@@ -1,4 +1,4 @@
-package com.bran.tfg_chatbot_movil
+package com.example.chatbot_movil
 
 import io.flutter.embedding.android.FlutterActivity
 
