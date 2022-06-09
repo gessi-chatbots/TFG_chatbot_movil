@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "chatbot_movil" "\0"
+            VALUE "CompanyName", "com.bran" "\0"
+            VALUE "FileDescription", "Mobile chatbot project" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "chatbot_movil" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2022 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "chatbot_movil.exe" "\0"
-            VALUE "ProductName", "chatbot_movil" "\0"
+            VALUE "InternalName", "tfg_chatbot_movil" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2021 com.bran. All rights reserved." "\0"
+            VALUE "OriginalFilename", "tfg_chatbot_movil.exe" "\0"
+            VALUE "ProductName", "tfg_chatbot_movil" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

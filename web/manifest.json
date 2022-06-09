@@ -1,11 +1,11 @@
 {
-    "name": "chatbot_movil",
-    "short_name": "chatbot_movil",
+    "name": "tfg_chatbot_movil",
+    "short_name": "tfg_chatbot_movil",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Mobile chatbot project",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
